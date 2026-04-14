@@ -1,0 +1,77 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "MealPlan": {
+      "title": "Meal Plan",
+      "description": "Daily meal plan for a user",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "date": { "type": "string", "description": "ISO date string YYYY-MM-DD" },
+        "breakfast": { "type": "string" },
+        "breakfastRecipeId": { "type": "string" },
+        "lunch": { "type": "string" },
+        "lunchRecipeId": { "type": "string" },
+        "dinner": { "type": "string" },
+        "dinnerRecipeId": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["userId", "date"]
+    },
+    "Recipe": {
+      "title": "Recipe",
+      "description": "A recipe created by a user",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "ingredients": { "type": "string" },
+        "instructions": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name"]
+    },
+    "ShoppingItem": {
+      "title": "Shopping Item",
+      "description": "An item in the shopping list",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "completed": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents"
+    },
+    "/mealPlans/{planId}": {
+      "schema": "MealPlan",
+      "description": "User meal plans"
+    },
+    "/recipes/{recipeId}": {
+      "schema": "Recipe",
+      "description": "User recipes"
+    },
+    "/shoppingItems/{itemId}": {
+      "schema": "ShoppingItem",
+      "description": "User shopping list items"
+    }
+  }
+}

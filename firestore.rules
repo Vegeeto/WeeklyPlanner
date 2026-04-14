@@ -1,0 +1,136 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId (UID)
+    // Fields:
+    //   - uid: string (required)
+    //   - email: string (required, email format)
+    //   - displayName: string (optional)
+    //   - photoURL: string (optional)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: mealPlans
+    // Document ID: auto-generated
+    // Fields:
+    //   - userId: string (required)
+    //   - date: string (required, YYYY-MM-DD)
+    //   - breakfast: string (optional)
+    //   - breakfastRecipeId: string (optional)
+    //   - lunch: string (optional)
+    //   - lunchRecipeId: string (optional)
+    //   - dinner: string (optional)
+    //   - dinnerRecipeId: string (optional)
+    //   - notes: string (optional)
+    //
+    // Collection: recipes
+    // Document ID: auto-generated
+    // Fields:
+    //   - userId: string (required)
+    //   - name: string (required)
+    //   - ingredients: string (optional)
+    //   - instructions: string (optional)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: shoppingItems
+    // Document ID: auto-generated
+    // Fields:
+    //   - userId: string (required)
+    //   - name: string (required)
+    //   - completed: bool (required)
+    //   - createdAt: timestamp (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    function isRequestOwner() {
+      return isAuthenticated() && request.auth.uid == request.resource.data.userId;
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidDate(date) {
+      return date is string && date.matches("^\\d{4}-\\d{2}-\\d{2}$");
+    }
+
+    function isValidString(val, maxLen) {
+      return val is string && val.size() <= maxLen;
+    }
+
+    function isValidRecipe(data) {
+      return isValidString(data.name, 100) && 
+             (!('ingredients' in data) || isValidString(data.ingredients, 2000)) &&
+             (!('instructions' in data) || isValidString(data.instructions, 5000));
+    }
+
+    function isValidMealPlan(data) {
+      return isValidDate(data.date) &&
+             (!('breakfast' in data) || isValidString(data.breakfast, 200)) &&
+             (!('morningNotes' in data) || isValidString(data.morningNotes, 500)) &&
+             (!('lunch' in data) || isValidString(data.lunch, 200)) &&
+             (!('afternoonNotes' in data) || isValidString(data.afternoonNotes, 500)) &&
+             (!('dinner' in data) || isValidString(data.dinner, 200)) &&
+             (!('eveningNotes' in data) || isValidString(data.eveningNotes, 500)) &&
+             (!('notes' in data) || isValidString(data.notes, 1000));
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && 
+                      request.resource.data.uid == userId &&
+                      isValidEmail(request.resource.data.email) &&
+                      isValidString(request.resource.data.displayName, 100);
+      allow update: if isOwner(userId) && 
+                      request.resource.data.uid == userId &&
+                      request.resource.data.email == resource.data.email &&
+                      isValidString(request.resource.data.displayName, 100);
+    }
+
+    match /mealPlans/{planId} {
+      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if isRequestOwner() && isValidMealPlan(request.resource.data);
+      allow update: if isDocOwner() && isRequestOwner() && 
+                      request.resource.data.date == resource.data.date &&
+                      isValidMealPlan(request.resource.data);
+      allow delete: if isDocOwner();
+    }
+
+    match /recipes/{recipeId} {
+      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if isRequestOwner() && isValidRecipe(request.resource.data);
+      allow update: if isDocOwner() && isRequestOwner() && isValidRecipe(request.resource.data);
+      allow delete: if isDocOwner();
+    }
+
+    match /shoppingItems/{itemId} {
+      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if isRequestOwner() && isValidString(request.resource.data.name, 200);
+      allow update: if isDocOwner() && isRequestOwner() && isValidString(request.resource.data.name, 200);
+      allow delete: if isDocOwner();
+    }
+  }
+}
