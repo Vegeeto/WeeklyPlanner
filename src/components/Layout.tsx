@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
+import { NavLink } from 'react-router-dom';
 import { auth, logout } from '@/src/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { LogOut, Calendar, Utensils, ShoppingCart, User, Menu, Sun, Moon } from 'lucide-react';
@@ -13,34 +14,29 @@ import {
 
 interface LayoutProps {
   children: React.ReactNode;
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
   isDarkMode: boolean;
   setIsDarkMode: (dark: boolean) => void;
 }
 
-export default function Layout({ children, activeTab, setActiveTab, isDarkMode, setIsDarkMode }: LayoutProps) {
+export default function Layout({ children, isDarkMode, setIsDarkMode }: LayoutProps) {
   const user = auth.currentUser;
 
   const Navigation = () => (
     <nav className="space-y-1 mt-8">
       <NavItem 
+        to="/"
         icon={<Calendar className="w-5 h-5" />} 
         label="Calendario" 
-        active={activeTab === 'calendar'} 
-        onClick={() => setActiveTab('calendar')} 
       />
       <NavItem 
+        to="/recipes"
         icon={<Utensils className="w-5 h-5" />} 
         label="Recetas" 
-        active={activeTab === 'recipes'} 
-        onClick={() => setActiveTab('recipes')} 
       />
       <NavItem 
+        to="/shopping"
         icon={<ShoppingCart className="w-5 h-5" />} 
         label="Lista de Compra" 
-        active={activeTab === 'shopping'} 
-        onClick={() => setActiveTab('shopping')} 
       />
     </nav>
   );
@@ -132,30 +128,34 @@ export default function Layout({ children, activeTab, setActiveTab, isDarkMode, 
   );
 }
 
-function NavItem({ icon, label, active, onClick }: { icon: React.ReactNode, label: string, active: boolean, onClick: () => void }) {
+function NavItem({ icon, label, to }: { icon: React.ReactNode, label: string, to: string }) {
   return (
-    <button
-      onClick={onClick}
-      className={`w-full flex items-center gap-4 px-4 py-4 text-sm font-bold transition-all duration-300 cursor-pointer group relative ${
-        active 
+    <NavLink
+      to={to}
+      className={({ isActive }) => `w-full flex items-center gap-4 px-4 py-4 text-sm font-bold transition-all duration-300 cursor-pointer group relative ${
+        isActive 
           ? 'text-rose-600 dark:text-rose-400' 
           : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
       }`}
     >
-      {active && (
-        <motion.div 
-          layoutId="nav-active"
-          className="absolute left-0 w-1 h-6 bg-rose-500 rounded-r-full"
-        />
+      {({ isActive }) => (
+        <>
+          {isActive && (
+            <motion.div 
+              layoutId="nav-active"
+              className="absolute left-0 w-1 h-6 bg-rose-500 rounded-r-full"
+            />
+          )}
+          <span className={`${isActive ? 'text-rose-500' : 'text-slate-400 dark:text-slate-500 group-hover:text-rose-500'} transition-colors duration-300`}>
+            {icon}
+          </span>
+          <span className="tracking-tight">{label}</span>
+          
+          {/* Subtle background on hover */}
+          <div className={`absolute inset-0 -z-10 bg-slate-50 dark:bg-slate-800/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${isActive ? 'opacity-100 bg-rose-50/50 dark:bg-rose-900/10' : ''}`} />
+        </>
       )}
-      <span className={`${active ? 'text-rose-500' : 'text-slate-400 dark:text-slate-500 group-hover:text-rose-500'} transition-colors duration-300`}>
-        {icon}
-      </span>
-      <span className="tracking-tight">{label}</span>
-      
-      {/* Subtle background on hover */}
-      <div className={`absolute inset-0 -z-10 bg-slate-50 dark:bg-slate-800/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${active ? 'opacity-100 bg-rose-50/50 dark:bg-rose-900/10' : ''}`} />
-    </button>
+    </NavLink>
   );
 }
 

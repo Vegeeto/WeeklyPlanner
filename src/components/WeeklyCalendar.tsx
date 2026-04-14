@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { format, startOfWeek, addDays, isSameDay, parseISO } from 'date-fns';
+import { format, startOfWeek, addDays, isSameDay, parseISO, addWeeks, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { db, auth } from '@/src/lib/firebase';
 import { collection, query, where, onSnapshot, setDoc, doc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { MealPlan, Recipe } from '@/src/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Save, Loader2, ShoppingCart, Coffee, Sun, Moon, StickyNote, Calendar as CalendarIcon, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, Loader2, ShoppingCart, Coffee, Sun, Moon, StickyNote, Calendar as CalendarIcon, Sparkles, Copy } from 'lucide-react';
 import MealInput from './MealInput';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
@@ -16,6 +16,18 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { writeBatch } from 'firebase/firestore';
 
 export default function WeeklyCalendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -24,6 +36,9 @@ export default function WeeklyCalendar() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [generatingList, setGeneratingList] = useState(false);
+  const [isCloneDialogOpen, setIsCloneDialogOpen] = useState(false);
+  const [targetWeekDate, setTargetWeekDate] = useState(format(addWeeks(new Date(), 1), 'yyyy-MM-dd'));
+  const [cloning, setCloning] = useState(false);
 
   const user = auth.currentUser;
   const startDate = startOfWeek(currentDate, { weekStartsOn: 1 });
@@ -146,6 +161,58 @@ export default function WeeklyCalendar() {
       toast.error("Failed to generate shopping list");
     } finally {
       setGeneratingList(false);
+    }
+  };
+
+  const handleCloneWeek = async () => {
+    if (!user) return;
+    setCloning(true);
+    try {
+      const targetStart = startOfWeek(parseISO(targetWeekDate), { weekStartsOn: 1 });
+      const sourceStart = startDate;
+      
+      const batch = writeBatch(db);
+      let count = 0;
+
+      // Iterate through each day of the source week
+      for (let i = 0; i < 7; i++) {
+        const sourceDay = addDays(sourceStart, i);
+        const sourceDateStr = format(sourceDay, 'yyyy-MM-dd');
+        const sourcePlan = mealPlans[sourceDateStr];
+
+        if (sourcePlan) {
+          const targetDay = addDays(targetStart, i);
+          const targetDateStr = format(targetDay, 'yyyy-MM-dd');
+          const targetDocId = `${user.uid}_${targetDateStr}`;
+          
+          const { id, ...planData } = sourcePlan;
+          const newPlan = {
+            ...planData,
+            date: targetDateStr,
+            userId: user.uid
+          };
+
+          batch.set(doc(db, 'mealPlans', targetDocId), newPlan);
+          count++;
+        }
+      }
+
+      if (count === 0) {
+        toast.info("No hay planes en la semana actual para clonar.");
+        return;
+      }
+
+      await batch.commit();
+      toast.success(`¡Semana clonada con éxito! Se han copiado ${count} días.`);
+      setIsCloneDialogOpen(false);
+      
+      // If the target week is the one currently being viewed, the onSnapshot will update it.
+      // If it's a different week, the user will see it when they navigate there.
+    } catch (error) {
+      console.error("Error cloning week:", error);
+      toast.error("Error al clonar la semana");
+    } finally {
+      setCloning(false);
     }
   };
 
@@ -292,6 +359,58 @@ export default function WeeklyCalendar() {
           </Button>
         </div>
         <div className="flex gap-3 w-full sm:w-auto">
+          <Dialog open={isCloneDialogOpen} onOpenChange={setIsCloneDialogOpen}>
+            <DialogTrigger
+              render={
+                <Button 
+                  variant="outline" 
+                  className="flex-1 sm:flex-none cursor-pointer border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-2xl px-6 font-bold text-sm transition-all duration-200 shadow-sm"
+                />
+              }
+            >
+              <Copy className="w-4 h-4 mr-2" />
+              Clonar
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px] rounded-[2rem] bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800">
+              <DialogHeader>
+                <DialogTitle className="text-xl font-black text-slate-800 dark:text-white flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-rose-500" />
+                  Clonar Planificación
+                </DialogTitle>
+                <DialogDescription className="text-slate-500 dark:text-slate-400">
+                  Copia todos los planes de la semana actual ({format(weekDays[0], 'dd/MM')} — {format(weekDays[6], 'dd/MM')}) a otra semana.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="target-week" className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                    Semana de Destino (selecciona cualquier día)
+                  </Label>
+                  <Input
+                    id="target-week"
+                    type="date"
+                    value={targetWeekDate}
+                    onChange={(e) => setTargetWeekDate(e.target.value)}
+                    className="rounded-xl border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50"
+                  />
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 italic">
+                    Se clonará a la semana que contenga el día seleccionado (Lunes a Domingo).
+                  </p>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button 
+                  onClick={handleCloneWeek} 
+                  disabled={cloning}
+                  className="w-full bg-rose-500 hover:bg-rose-600 text-white rounded-2xl py-6 font-bold shadow-lg shadow-rose-200 dark:shadow-none transition-all"
+                >
+                  {cloning ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
+                  Confirmar Clonación
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
           <Button 
             variant="outline" 
             onClick={generateShoppingList} 

@@ -13,10 +13,12 @@ A polished, interactive weekly calendar application designed to help you organiz
 - **Mobile Optimized**: Collapsible accordion view for mobile devices and a unified sidebar navigation.
 - **Google Authentication**: Secure login using your Google account via Firebase.
 - **Real-time Sync**: Your data is synced across devices using Google Firestore.
+- **Real URL Routing**: Clean navigation using React Router with full support for browser history and deep linking.
 
 ## Tech Stack
 
 - **Frontend**: React 19, Vite, TypeScript
+- **Routing**: React Router 7
 - **Styling**: Tailwind CSS 4
 - **UI Components**: shadcn/ui, Base UI, Lucide React
 - **Backend/Database**: Firebase (Auth & Firestore)
@@ -73,6 +75,19 @@ A polished, interactive weekly calendar application designed to help you organiz
    ```bash
    npm run build
    ```
+
+## Deployment (GitHub Pages)
+
+This project is optimized for deployment on GitHub Pages using GitHub Actions.
+
+### Configuration
+
+1. **GitHub Secrets**: Add your Firebase configuration keys to your repository's **Settings > Secrets and variables > Actions**.
+2. **Automatic Base Path**: The deployment workflow automatically detects your repository name and sets the `VITE_BASE_PATH` accordingly. This ensures that assets and routes work correctly even if the app is hosted in a subfolder (e.g., `https://username.github.io/repo-name/`).
+3. **SPA Support**: A `404.html` script is included in the `public` folder to handle direct navigation to sub-routes (like `/recipes`) by redirecting them back to the main entry point while preserving the intended path.
+
+### Manual Deployment
+If you deploy manually, ensure you set the `VITE_BASE_PATH` environment variable to match your hosting subdirectory.
 
 ## Docker Configuration
 

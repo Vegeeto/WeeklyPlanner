@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { auth, loginWithGoogle, db } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import WeeklyCalendar from './components/WeeklyCalendar';
 import RecipeManager from './components/RecipeManager';
@@ -13,7 +14,6 @@ import { Toaster } from '@/components/ui/sonner';
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('calendar');
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('theme') === 'dark' || 
@@ -100,13 +100,18 @@ export default function App() {
   }
 
   return (
-    <Layout activeTab={activeTab} setActiveTab={setActiveTab} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode}>
-      <div className="animate-in fade-in duration-500">
-        {activeTab === 'calendar' && <WeeklyCalendar />}
-        {activeTab === 'recipes' && <RecipeManager />}
-        {activeTab === 'shopping' && <ShoppingList />}
-      </div>
-      <Toaster position="bottom-right" />
-    </Layout>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
+      <Layout isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode}>
+        <div className="animate-in fade-in duration-500">
+          <Routes>
+            <Route path="/" element={<WeeklyCalendar />} />
+            <Route path="/recipes" element={<RecipeManager />} />
+            <Route path="/shopping" element={<ShoppingList />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
+        <Toaster position="bottom-right" />
+      </Layout>
+    </BrowserRouter>
   );
 }
