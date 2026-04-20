@@ -1,7 +1,7 @@
 node_modules
 dist
 .git
-.env
+.gitignore
 .env.local
 .env.development.local
 .env.test.local
@@ -11,6 +11,7 @@ yarn-debug.log*
 yarn-error.log*
 .DS_Store
 README.md
+docker
 Dockerfile
 .dockerignore
 firebase-blueprint.json

@@ -6,7 +6,7 @@ import {defineConfig, loadEnv} from 'vite';
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
   // Priorizar process.env (CI) sobre loadEnv (.env files)
-  const basePath = process.env.VITE_BASE_PATH || env.VITE_BASE_PATH || '/';
+  const basePath = process.env.VITE_BASE_URL || env.VITE_BASE_URL || '/';
   
   // Recopilar todas las variables VITE_ de process.env para asegurar que se incluyan en el build
   const processViteEnv: Record<string, string> = {};

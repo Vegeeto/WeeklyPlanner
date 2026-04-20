@@ -55,7 +55,7 @@ A polished, interactive weekly calendar application designed to help you organiz
    VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
    VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
    VITE_FIREBASE_APP_ID=your_app_id
-   VITE_FIREBASE_FIRESTORE_DATABASE_ID=your_database_id
+   VITE_FIREBASE_DATABASE_ID=your_database_id
    VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
    ```
    *Note: In AI Studio, you MUST configure these in the **Secrets** panel.*
