@@ -2,13 +2,70 @@ import React, { useState, useEffect } from 'react';
 import { db, auth } from '@/src/lib/firebase';
 import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, orderBy } from 'firebase/firestore';
 import { Recipe } from '@/src/types';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Search, Edit2, Trash2, X, Save, Loader2, UtensilsCrossed } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Save, Loader2, UtensilsCrossed } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+
+
+function RecipeForm({
+                      initialData,
+                      submitting,
+                      onSubmit
+                    }: {
+  initialData: { name: string, ingredients: string, instructions: string },
+  submitting: boolean,
+  onSubmit: (data: { name: string, ingredients: string, instructions: string }) => Promise<void>
+}) {
+  const [formData, setFormData] = useState(initialData);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  return (
+      <form onSubmit={handleSubmit} className="p-8 space-y-6">
+        <div className="space-y-2">
+          <label className="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 ml-1">Nombre de la Receta</label>
+          <Input
+              required
+              value={formData.name}
+              onChange={(e) => setFormData({...formData, name: e.target.value})}
+              placeholder="ej. Pasta Carbonara 🍝"
+              className="rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all h-12 px-5 font-semibold text-slate-700 dark:text-slate-200"
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 ml-1">Ingredientes</label>
+          <Textarea
+              value={formData.ingredients}
+              onChange={(e) => setFormData({...formData, ingredients: e.target.value})}
+              placeholder="Lista de ingredientes (uno por línea)..."
+              className="rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all min-h-[120px] p-5 font-medium text-slate-600 dark:text-slate-300"
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 ml-1">Instrucciones</label>
+          <Textarea
+              value={formData.instructions}
+              onChange={(e) => setFormData({...formData, instructions: e.target.value})}
+              placeholder="Paso a paso para cocinar..."
+              className="rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all min-h-[180px] p-5 font-medium text-slate-600 dark:text-slate-300"
+          />
+        </div>
+        <DialogFooter className="pt-4">
+          <Button type="submit" disabled={submitting} className="cursor-pointer bg-rose-500 hover:bg-rose-600 text-white rounded-2xl h-14 w-full font-black text-lg shadow-lg shadow-rose-200 dark:shadow-none transition-all active:scale-95">
+            {submitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Save className="w-5 h-5 mr-2" />}
+            {initialData.name ? 'Actualizar Receta' : 'Guardar Receta'}
+          </Button>
+        </DialogFooter>
+      </form>
+  );
+}
 
 export default function RecipeManager() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -18,7 +75,7 @@ export default function RecipeManager() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  const [formData, setFormData] = useState({
+  const [initialFormData, setInitialFormData] = useState({
     name: '',
     ingredients: '',
     instructions: ''
@@ -47,32 +104,31 @@ export default function RecipeManager() {
   const handleOpenDialog = (recipe?: Recipe) => {
     if (recipe) {
       setEditingRecipe(recipe);
-      setFormData({
+      setInitialFormData({
         name: recipe.name,
         ingredients: recipe.ingredients,
         instructions: recipe.instructions
       });
     } else {
       setEditingRecipe(null);
-      setFormData({ name: '', ingredients: '', instructions: '' });
+      setInitialFormData({ name: '', ingredients: '', instructions: '' });
     }
     setIsDialogOpen(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user || !formData.name) return;
+  const onFormSubmit = async (data: { name: string, ingredients: string, instructions: string }) => {
+    if (!user || !data.name) return;
 
     setSubmitting(true);
     try {
       if (editingRecipe) {
         await updateDoc(doc(db, 'recipes', editingRecipe.id!), {
-          ...formData
+          ...data
         });
         toast.success("Recipe updated!");
       } else {
         await addDoc(collection(db, 'recipes'), {
-          ...formData,
+          ...data,
           userId: user.uid,
           createdAt: serverTimestamp()
         });
@@ -126,7 +182,10 @@ export default function RecipeManager() {
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger
             render={
-              <Button onClick={() => handleOpenDialog()} className="cursor-pointer bg-rose-500 hover:bg-rose-600 text-white rounded-2xl h-12 px-8 font-bold shadow-lg shadow-rose-200 dark:shadow-none transition-all active:scale-95 w-full sm:w-auto" />
+              <Button onClick={() => handleOpenDialog()} className="cursor-pointer bg-rose-500 hover:bg-rose-600 text-white rounded-2xl h-12 px-8 font-bold shadow-lg shadow-rose-200 dark:shadow-none transition-all active:scale-95 w-full sm:w-auto">
+                <Plus className="w-5 h-5 mr-2" />
+                Nueva Receta
+              </Button>
             }
           >
             <Plus className="w-5 h-5 mr-2" />
@@ -136,42 +195,11 @@ export default function RecipeManager() {
             <DialogHeader className="p-8 pb-0">
               <DialogTitle className="text-2xl font-black text-slate-800 dark:text-white">{editingRecipe ? 'Editar Receta 📝' : 'Nueva Receta ✨'}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="p-8 space-y-6">
-              <div className="space-y-2">
-                <label className="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 ml-1">Nombre de la Receta</label>
-                <Input 
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  placeholder="ej. Pasta Carbonara 🍝"
-                  className="rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all h-12 px-5 font-semibold text-slate-700 dark:text-slate-200"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 ml-1">Ingredientes</label>
-                <Textarea 
-                  value={formData.ingredients}
-                  onChange={(e) => setFormData({...formData, ingredients: e.target.value})}
-                  placeholder="Lista de ingredientes (uno por línea)..."
-                  className="rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all min-h-[120px] p-5 font-medium text-slate-600 dark:text-slate-300"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 ml-1">Instrucciones</label>
-                <Textarea 
-                  value={formData.instructions}
-                  onChange={(e) => setFormData({...formData, instructions: e.target.value})}
-                  placeholder="Paso a paso para cocinar..."
-                  className="rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all min-h-[180px] p-5 font-medium text-slate-600 dark:text-slate-300"
-                />
-              </div>
-              <DialogFooter className="pt-4">
-                <Button type="submit" disabled={submitting} className="cursor-pointer bg-rose-500 hover:bg-rose-600 text-white rounded-2xl h-14 w-full font-black text-lg shadow-lg shadow-rose-200 dark:shadow-none transition-all active:scale-95">
-                  {submitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Save className="w-5 h-5 mr-2" />}
-                  {editingRecipe ? 'Actualizar Receta' : 'Guardar Receta'}
-                </Button>
-              </DialogFooter>
-            </form>
+            <RecipeForm
+                initialData={initialFormData}
+                submitting={submitting}
+                onSubmit={onFormSubmit}
+            />
           </DialogContent>
         </Dialog>
       </div>

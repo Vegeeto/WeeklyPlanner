@@ -32,15 +32,22 @@ export default function MealInput({ value, onChange, recipes, placeholder }: Mea
     setInputValue(value);
   }, [value]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (inputValue !== value) {
+        onChange(inputValue);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [inputValue]);
+
   const handleSelect = (recipeName: string, recipeId: string) => {
     onChange(recipeName, recipeId);
     setOpen(false);
   };
 
   const handleManualChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newVal = e.target.value;
-    setInputValue(newVal);
-    onChange(newVal);
+    setInputValue(e.target.value);
   };
 
   return (

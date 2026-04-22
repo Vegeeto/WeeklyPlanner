@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { format, startOfWeek, addDays, isSameDay, parseISO, addWeeks, startOfDay } from 'date-fns';
+import React, { useState, useEffect, useCallback } from 'react';
+import { format, startOfWeek, addDays, isSameDay, parseISO, addWeeks } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { db, auth } from '@/src/lib/firebase';
 import { collection, query, where, onSnapshot, setDoc, doc, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Save, Loader2, ShoppingCart, Coffee, Sun, Moon, StickyNote, Calendar as CalendarIcon, Sparkles, Copy } from 'lucide-react';
 import MealInput from './MealInput';
 import { toast } from 'sonner';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import {
   Accordion,
   AccordionContent,
@@ -28,6 +28,160 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { writeBatch } from 'firebase/firestore';
+
+
+interface DayContentProps {
+  day: Date;
+  dateStr: string;
+  plan: any;
+  recipes: Recipe[];
+  saving: string | null;
+  onMealChange: (date: string, type: any, val: string, rid?: string) => void;
+  onNotesChange: (date: string, val: string) => void;
+  onSave: (date: string) => void;
+}
+
+const DayContent = React.memo(({ day, dateStr, plan, recipes, saving, onMealChange, onNotesChange, onSave }: DayContentProps) => {
+  return (
+      <div className="space-y-6">
+        <div className="space-y-4">
+          {/* Breakfast */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 px-1">
+              <div className="bg-amber-100 dark:bg-amber-900/30 p-1.5 rounded-lg">
+                <Coffee className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <label className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">Desayuno</label>
+            </div>
+            <div className="bg-amber-50/50 dark:bg-amber-900/10 p-3 rounded-2xl border border-amber-100/50 dark:border-amber-900/20 transition-all hover:bg-amber-50 dark:hover:bg-amber-900/20">
+              <MealInput
+                  value={plan.breakfast}
+                  onChange={(val, rid) => onMealChange(dateStr, 'breakfast', val, rid)}
+                  recipes={recipes}
+                  placeholder="🍳 ¿Qué desayunamos hoy?..."
+              />
+            </div>
+            <NoteTextarea
+                value={plan.morningNotes || ''}
+                onChange={(val) => onMealChange(dateStr, 'morningNotes', val)}
+                placeholder="📝 Notas de la mañana..."
+            />
+          </div>
+
+          {/* Lunch */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 px-1">
+              <div className="bg-rose-100 dark:bg-rose-900/30 p-1.5 rounded-lg">
+                <Sun className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+              </div>
+              <label className="text-xs font-bold uppercase tracking-wider text-rose-700 dark:text-rose-300">Comida</label>
+            </div>
+            <div className="bg-rose-50/50 dark:bg-rose-900/10 p-3 rounded-2xl border border-rose-100/50 dark:border-rose-900/20 transition-all hover:bg-rose-50 dark:hover:bg-rose-900/20">
+              <MealInput
+                  value={plan.lunch}
+                  onChange={(val, rid) => onMealChange(dateStr, 'lunch', val, rid)}
+                  recipes={recipes}
+                  placeholder="🥗 Menú del mediodía..."
+              />
+            </div>
+            <NoteTextarea
+                value={plan.afternoonNotes || ''}
+                onChange={(val) => onMealChange(dateStr, 'afternoonNotes', val)}
+                placeholder="📝 Notas de la tarde..."
+            />
+          </div>
+
+          {/* Dinner */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 px-1">
+              <div className="bg-indigo-100 dark:bg-indigo-900/30 p-1.5 rounded-lg">
+                <Moon className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <label className="text-xs font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300">Cena</label>
+            </div>
+            <div className="bg-indigo-50/50 dark:bg-indigo-900/10 p-3 rounded-2xl border border-indigo-100/50 dark:border-indigo-900/20 transition-all hover:bg-indigo-50 dark:hover:bg-indigo-900/20">
+              <MealInput
+                  value={plan.dinner}
+                  onChange={(val, rid) => onMealChange(dateStr, 'dinner', val, rid)}
+                  recipes={recipes}
+                  placeholder="🌙 Cena ligera..."
+              />
+            </div>
+            <NoteTextarea
+                value={plan.eveningNotes || ''}
+                onChange={(val) => onMealChange(dateStr, 'eveningNotes', val)}
+                placeholder="📝 Notas de la noche..."
+            />
+          </div>
+        </div>
+
+        <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-2 px-1">
+            <div className="bg-slate-100 dark:bg-slate-800 p-1.5 rounded-lg">
+              <StickyNote className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
+            </div>
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">📝 Notas del Día</label>
+          </div>
+          <NoteTextarea
+              value={plan.notes}
+              onChange={(val) => onNotesChange(dateStr, val)}
+              placeholder="Tareas, entrenamientos, recordatorios..."
+              className="h-24 text-sm rounded-2xl"
+          />
+        </div>
+
+        <Button
+            onClick={() => onSave(dateStr)}
+            disabled={saving === dateStr}
+            className="w-full cursor-pointer bg-rose-500 hover:bg-rose-600 text-white rounded-2xl py-6 shadow-lg shadow-rose-200 dark:shadow-rose-900/40 transition-all duration-200 active:scale-[0.98]"
+        >
+          {saving === dateStr ? (
+              <Loader2 className="h-5 w-5 animate-spin mr-2" />
+          ) : (
+              <Save className="h-5 w-5 mr-2" />
+          )}
+          <span className="font-bold">Guardar Día</span>
+        </Button>
+      </div>
+  );
+});
+
+function NoteTextarea({ value, onChange, placeholder, className }: { value: string, onChange: (val: string) => void, placeholder: string, className?: string }) {
+  const [localValue, setLocalValue] = useState(value);
+
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (localValue !== value) {
+        onChange(localValue);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [localValue]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setLocalValue(e.target.value);
+  };
+
+  return (
+      <textarea
+          value={localValue}
+          onChange={handleChange}
+          placeholder={placeholder}
+          className={cn(
+              "w-full h-12 p-3 text-xs bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-xl resize-none focus:ring-2 focus:ring-rose-500 focus:bg-white dark:focus:bg-slate-800 transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600 text-slate-700 dark:text-slate-200",
+              className
+          )}
+      />
+  );
+}
+
+function cn(...inputs: any[]) {
+  return inputs.filter(Boolean).join(' ');
+}
 
 export default function WeeklyCalendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -82,7 +236,7 @@ export default function WeeklyCalendar() {
     return () => unsubscribe();
   }, [user, currentDate]);
 
-  const handleMealChange = (date: string, mealType: 'breakfast' | 'lunch' | 'dinner' | 'morningNotes' | 'afternoonNotes' | 'eveningNotes', value: string, recipeId?: string) => {
+  const handleMealChange = useCallback((date: string, mealType: 'breakfast' | 'lunch' | 'dinner' | 'morningNotes' | 'afternoonNotes' | 'eveningNotes', value: string, recipeId?: string) => {
     setMealPlans(prev => ({
       ...prev,
       [date]: {
@@ -91,9 +245,9 @@ export default function WeeklyCalendar() {
         ...(recipeId ? { [`${mealType}RecipeId`]: recipeId } : {})
       }
     }));
-  };
+  }, [user]);
 
-  const handleNotesChange = (date: string, value: string) => {
+  const handleNotesChange = useCallback((date: string, value: string) => {
     setMealPlans(prev => ({
       ...prev,
       [date]: {
@@ -101,7 +255,7 @@ export default function WeeklyCalendar() {
         notes: value
       }
     }));
-  };
+  }, [user]);
 
   const saveDay = async (date: string) => {
     if (!user) return;
@@ -223,112 +377,6 @@ export default function WeeklyCalendar() {
       </div>
     );
   }
-
-  const DayContent = ({ day, dateStr, plan }: { day: Date, dateStr: string, plan: any }) => (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        {/* Breakfast */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 px-1">
-            <div className="bg-amber-100 dark:bg-amber-900/30 p-1.5 rounded-lg">
-              <Coffee className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-            </div>
-            <label className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">🍳 Desayuno</label>
-          </div>
-          <div className="bg-amber-50/50 dark:bg-amber-900/10 p-3 rounded-2xl border border-amber-100/50 dark:border-amber-900/20 transition-all hover:bg-amber-50 dark:hover:bg-amber-900/20">
-            <MealInput 
-              value={plan.breakfast} 
-              onChange={(val, rid) => handleMealChange(dateStr, 'breakfast', val, rid)}
-              recipes={recipes}
-              placeholder="¿Qué desayunamos hoy?..."
-            />
-          </div>
-          <textarea
-            value={plan.morningNotes || ''}
-            onChange={(e) => handleMealChange(dateStr, 'morningNotes', e.target.value)}
-            placeholder="📝 Notas de la mañana..."
-            className="w-full h-12 p-3 text-xs bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-xl resize-none focus:ring-2 focus:ring-rose-500 focus:bg-white dark:focus:bg-slate-800 transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600 text-slate-700 dark:text-slate-200"
-          />
-        </div>
-
-        {/* Lunch */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 px-1">
-            <div className="bg-rose-100 dark:bg-rose-900/30 p-1.5 rounded-lg">
-              <Sun className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
-            </div>
-            <label className="text-xs font-bold uppercase tracking-wider text-rose-700 dark:text-rose-300">🥗 Comida</label>
-          </div>
-          <div className="bg-rose-50/50 dark:bg-rose-900/10 p-3 rounded-2xl border border-rose-100/50 dark:border-rose-900/20 transition-all hover:bg-rose-50 dark:hover:bg-rose-900/20">
-            <MealInput 
-              value={plan.lunch} 
-              onChange={(val, rid) => handleMealChange(dateStr, 'lunch', val, rid)}
-              recipes={recipes}
-              placeholder="Menú del mediodía..."
-            />
-          </div>
-          <textarea
-            value={plan.afternoonNotes || ''}
-            onChange={(e) => handleMealChange(dateStr, 'afternoonNotes', e.target.value)}
-            placeholder="📝 Notas de la tarde..."
-            className="w-full h-12 p-3 text-xs bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-xl resize-none focus:ring-2 focus:ring-rose-500 focus:bg-white dark:focus:bg-slate-800 transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600 text-slate-700 dark:text-slate-200"
-          />
-        </div>
-
-        {/* Dinner */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 px-1">
-            <div className="bg-indigo-100 dark:bg-indigo-900/30 p-1.5 rounded-lg">
-              <Moon className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-            </div>
-            <label className="text-xs font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300">🌙 Cena</label>
-          </div>
-          <div className="bg-indigo-50/50 dark:bg-indigo-900/10 p-3 rounded-2xl border border-indigo-100/50 dark:border-indigo-900/20 transition-all hover:bg-indigo-50 dark:hover:bg-indigo-900/20">
-            <MealInput 
-              value={plan.dinner} 
-              onChange={(val, rid) => handleMealChange(dateStr, 'dinner', val, rid)}
-              recipes={recipes}
-              placeholder="Cena ligera..."
-            />
-          </div>
-          <textarea
-            value={plan.eveningNotes || ''}
-            onChange={(e) => handleMealChange(dateStr, 'eveningNotes', e.target.value)}
-            placeholder="📝 Notas de la noche..."
-            className="w-full h-12 p-3 text-xs bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-xl resize-none focus:ring-2 focus:ring-rose-500 focus:bg-white dark:focus:bg-slate-800 transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600 text-slate-700 dark:text-slate-200"
-          />
-        </div>
-      </div>
-      
-      <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-        <div className="flex items-center gap-2 px-1">
-          <div className="bg-slate-100 dark:bg-slate-800 p-1.5 rounded-lg">
-            <StickyNote className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
-          </div>
-          <label className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">📝 Notas del Día</label>
-        </div>
-        <textarea
-          value={plan.notes}
-          onChange={(e) => handleNotesChange(dateStr, e.target.value)}
-          placeholder="Tareas, entrenamientos, recordatorios..."
-          className="w-full h-24 p-3 text-sm bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl resize-none focus:ring-2 focus:ring-rose-500 focus:bg-white dark:focus:bg-slate-800 transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600 text-slate-700 dark:text-slate-200"
-        />
-      </div>
-
-      <Button 
-        onClick={() => saveDay(dateStr)}
-        disabled={saving === dateStr}
-        className="w-full cursor-pointer bg-rose-500 hover:bg-rose-600 text-white rounded-2xl py-6 shadow-lg shadow-rose-200 transition-all duration-200 active:scale-[0.98]"
-      >
-        {saving === dateStr ? (
-          <Loader2 className="h-5 w-5 animate-spin mr-2" />
-        ) : (
-          <Save className="h-5 w-5 mr-2" />
-        )}
-        <span className="font-bold">Guardar Día</span>
-      </Button>
-    </div>
-  );
 
   return (
     <div className="space-y-8">
@@ -466,7 +514,16 @@ export default function WeeklyCalendar() {
                     </div>
                   </CardHeader>
                   <CardContent className="p-6 pt-4">
-                    <DayContent day={day} dateStr={dateStr} plan={plan} />
+                    <DayContent
+                        day={day}
+                        dateStr={dateStr}
+                        plan={plan}
+                        recipes={recipes}
+                        saving={saving}
+                        onMealChange={handleMealChange}
+                        onNotesChange={handleNotesChange}
+                        onSave={saveDay}
+                    />
                   </CardContent>
                 </Card>
               </motion.div>
@@ -517,7 +574,16 @@ export default function WeeklyCalendar() {
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="pb-8">
-                    <DayContent day={day} dateStr={dateStr} plan={plan} />
+                    <DayContent
+                        day={day}
+                        dateStr={dateStr}
+                        plan={plan}
+                        recipes={recipes}
+                        saving={saving}
+                        onMealChange={handleMealChange}
+                        onNotesChange={handleNotesChange}
+                        onSave={saveDay}
+                    />
                   </AccordionContent>
                 </AccordionItem>
               </motion.div>

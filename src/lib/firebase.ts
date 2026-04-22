@@ -18,7 +18,7 @@ if (!firebaseConfig.apiKey) {
   console.error("Firebase API Key is missing! Check your GitHub Secrets and VITE_FIREBASE_API_KEY variable.");
 }
 
-const firestoreDatabaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID || firebaseConfigJson.firestoreDatabaseId || '(default)';
+const firestoreDatabaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID || '(default)';
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
